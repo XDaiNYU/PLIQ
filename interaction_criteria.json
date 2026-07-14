@@ -1,0 +1,18 @@
+{
+  "_PLQ_note": "Tiers: low=loose, medium=default, high=strict. Legacy 'medium1' tier/column/key maps to medium.",
+  "tier": "medium",
+  "cutoffs": {
+    "hydrogen_bond_dist_cutoff": 3.6,
+    "hydrogen_halogen_bond_angle_cutoff": 36.0,
+    "halogen_bond_dist_cutoff": 5.25,
+    "salt_bridge_dist_cutoff": 5.25,
+    "cation_pi_dist_cutoff": 5.7,
+    "hydrophobic_dist_cutoff": 3.75,
+    "pi_pi_general_dist_cutoff": 7.0,
+    "pi_stacking_angle_tol": 25.0,
+    "t_stacking_angle_tol": 25.0,
+    "t_stacking_closest_dist_cutoff": 4.75,
+    "pi_padding": 0.7,
+    "metal_coordination_dist_cutoff": 3.35
+  }
+}

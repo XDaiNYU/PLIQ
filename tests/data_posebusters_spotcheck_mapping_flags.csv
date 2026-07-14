@@ -1,0 +1,5 @@
+case,model,status,pliq_mapping_trusted,otmol_bci_zero_ok,otmol_BCI,otmol_dock_to_ref_complete_ok,binana_rdkit_ref_map_ok,binana_rdkit_dock_map_ok,binana_rdkit_ref_map_stats,binana_rdkit_dock_map_stats,pliq_mapping_warnings,binana_error,ligand_rmsd,interface_rmsd,fnat_all,binana_hbond_tp_n,binana_hydrophobic_tp_n,eDockQ1,eDockQ6_1,otmol_map_pairs,dock_to_ref_n
+5S8I_2LY,0,OK,True,True,0.0,True,True,True,13/13,13/13,,,0.8670301653877491,1.2329228971717456,0.5614035087719298,0,0,0.7179598769008727,0.5288345813925984,13,13
+6TW7_NZB,0,OK,True,True,0.0,True,True,True,29/29,29/29,,,1.3588377132809057,0.7538335945255381,0.7711864406779662,0,1,0.8297445219792956,0.609666549269744,29,29
+7ZU2_DHT,15,OK,True,True,0.0,True,True,True,21/21,21/21,,,0.12735271605157983,0.19338298457569716,0.9347826086956522,2,2,0.9738265083137642,0.9944754758653865,21,21
+8BN6_R53,0,OK,True,True,0.0,True,True,True,29/29,29/29,,,0.6824089177571485,0.588162429908647,0.963963963963964,1,7,0.9371281729285782,0.7929513620851006,29,29

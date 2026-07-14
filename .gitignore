@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+pliq.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PLIQ runtime outputs (local runs)
+pliq_runs/
+per_model/
+tasks_*/
+e-DockQ_stepwise*.csv
+e-DockQ_scored*.csv
+slurm-*.out
+slurm-*.err
+*.log
+
+# Compiled TM-score binary at repo root (built locally; not vendored source)
+/TMscore
+/TMscore.exe
+
+# Large local data (not shipped)
+data_posebusters/
+otmol_package/
+
+# Local dev logs (not for release)
+changes_ver*.log

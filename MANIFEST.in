@@ -1,0 +1,4 @@
+recursive-include pliq/_vendor *
+include examples/*.tsv
+include examples/*.py
+# TM-score: bundled source (Zhang lab); binary is built locally via g++

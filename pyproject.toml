@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pliq"
+version = "0.6.1"
+description = "PL-Quality (PLQ): end-to-end docking pose QA (e-DockQ, PoseBusters, TM-score, BINANA)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "PLQ maintainers" }]
+dependencies = [
+  "pandas>=1.0",
+  "numpy>=1.18",
+  "tqdm",
+  "prody",
+  "rdkit",
+  "posebusters",
+  "openpyxl>=3.0",
+  "otmol @ git+https://github.com/weixiaoqimath/otmol.git",
+]
+
+[project.scripts]
+pliq = "pliq.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/XDaiNYU/PLIQ"
+Repository = "https://github.com/XDaiNYU/PLIQ"
+OTMol = "https://github.com/weixiaoqimath/otmol"
+TM-score = "https://zhanggroup.org/TM-score/"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pliq*"]
+
+[tool.setuptools.package-data]
+pliq = ["_vendor/**/*"]
