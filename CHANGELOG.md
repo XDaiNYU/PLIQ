@@ -4,6 +4,14 @@ All notable changes to **PLIQ** are documented here.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.2] — 2026-06-23
+
+### Added
+
+- Bundled worked example **`examples/7ZU2_DHT_model15/`** (ref/dock PDBs, `run_example.py`, summary + full CSVs).
+- **`pliq`** headline column (= `eDockQ6_1`) and **`pliq_term_*`** decomposition columns in scored output.
+- **`run_otmol_ok` / `run_binana_ok` / `run_posebusters_ok` / `run_tmscore_ok`** status flags in `run_pliq_from_pdbs`.
+
 ## [0.6.1] — 2026-06-23
 
 ### Added

@@ -154,7 +154,8 @@ df = run_pliq_from_pdbs(
     pdb_id="1ABC",
     af_model_id=0,
 )
-# df columns include ligand_rmsd, interface_rmsd, fnat_*, binana_*_tp_n, eDockQ1, eDockQ6_1..4
+# df columns include ligand_rmsd, interface_rmsd, fnat_*, binana_*_tp_n,
+# pliq (default headline score), pliq_term_*, eDockQ1, eDockQ6_1..4
 ```
 
 **Pipeline inside `run_pliq_from_pdbs`:**
@@ -162,7 +163,69 @@ df = run_pliq_from_pdbs(
 1. OTMol e-DockQ + BINANA (`evaluate_pose_from_pdbs`)
 2. PoseBusters (redock config)
 3. TM-score (protein)
-4. `eDockQ1` / `eDockQ6_1..4` scoring (`pliq_edockq_scoring`)
+4. `eDockQ1` / `eDockQ6_1..4` scoring + **`pliq` / `pliq_term_*` summary columns**
+
+### PLIQ score columns (in `df` after scoring)
+
+**Default headline score:** `pliq` = **`eDockQ6_1`** (BINANA receptor level: chain + resID + resName + atomName).
+
+| Column | Meaning |
+|--------|---------|
+| **`pliq`** | **Default PLIQ score** (= `eDockQ6_1`) |
+| `pliq_eDockQ1` | Simpler score without BINANA/PoseBusters/TM (= `eDockQ1`) |
+| `eDockQ6_1` | Level-1 composite (= `pliq`) |
+| `eDockQ6_2` | BINANA level `rxatm` (atomName granularity) |
+| `eDockQ6_3` | BINANA level `rxidx` (case-insensitive resName) |
+| `eDockQ6_4` | BINANA level `rxres` (residue-only signatures) |
+
+**Term decomposition for `pliq` (= `eDockQ6_1`):**
+
+```
+pliq = pliq_term_posebusters × (pliq_term_B6xH + pliq_term_kernel_i + pliq_term_kernel_l) / 3 × pliq_term_TM
+```
+
+| Column | Term | Source |
+|--------|------|--------|
+| `pliq_term_fnat` | BBSC FNAT F1 | backbone ∪ sidechain contact F1 |
+| `pliq_term_kernel_i` | k_i | `1 / (1 + (interface_rmsd/1.5)²)` |
+| `pliq_term_kernel_l` | k_l | `1 / (1 + (ligand_rmsd/8.5)²)` |
+| `pliq_term_B6` | B6 | Six-type BINANA micro-pooled F1 (default level) |
+| `pliq_term_H` | H | Hydrophobic BINANA F1 (default level) |
+| `pliq_term_B6xH` | B6×H | `pliq_term_B6 × pliq_term_H` |
+| `pliq_term_posebusters` | term_4 | `(PoseBusters 8-check pass fraction)²` |
+| `pliq_term_TM` | TM | TM-score (`tm_TMscore`) |
+
+**Run-status flags** (boolean, end-to-end only):
+
+| Column | Module |
+|--------|--------|
+| `run_otmol_ok` | OTMol ligand mapping + e-DockQ geometry |
+| `run_binana_ok` | BINANA recall (no `binana_error`) |
+| `run_posebusters_ok` | PoseBusters redock checks |
+| `run_tmscore_ok` | TM-score protein alignment |
+
+Level-specific B6/H for `eDockQ6_2..4` remain in `term_binana_six_micro_f1_{rxatm,rxidx,rxres}`, `term_binana_hydrophobic_f1_{...}`, `fnat_binana_{...}`.
+
+---
+
+## Worked example: 7ZU2_DHT model 15 (on GitHub)
+
+The repo ships a **complete mini case** under [`examples/7ZU2_DHT_model15/`](examples/7ZU2_DHT_model15/):
+
+- **4 PDB files** (ref ligand/protein + dock ligand/protein)
+- **`run_example.py`** — one command to reproduce
+- **`pliq_result_summary.csv`** — 29 key columns with expected values
+- **`pliq_result_full.csv`** — full ~740-column pipeline output
+- **[Column guide](examples/7ZU2_DHT_model15/README.md)** — every summary column explained
+
+```bash
+pip install git+https://github.com/XDaiNYU/PLIQ.git
+pliq compile-tmscore
+cd examples/7ZU2_DHT_model15
+python run_example.py
+```
+
+Expected headline score for this pose: **`pliq` ≈ 0.928** (all four modules `run_*_ok = True`).
 
 **Options:**
 

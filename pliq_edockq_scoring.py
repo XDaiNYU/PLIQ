@@ -276,7 +276,54 @@ def score_edockq_stepwise(df_raw: pd.DataFrame) -> pd.DataFrame:
         df[f"eDockQ1_binana_hydrophobic_{level}"] = eq1b_h
         df[f"eDockQ6_{num}"] = t4_b * eq1b_h * tm_b
 
+    df = add_pliq_summary_columns(df)
     return df
+
+
+# Default headline PLIQ score uses eDockQ6_1 (BINANA level: default / chain+resID+resName+atomName).
+PLIQ_DEFAULT_SCORE_COL = "eDockQ6_1"
+
+
+def add_pliq_summary_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add ``pliq`` (default = eDockQ6_1) and ``pliq_term_*`` decomposition columns."""
+    out = df.copy()
+    if PLIQ_DEFAULT_SCORE_COL in out.columns:
+        out["pliq"] = pd.to_numeric(out[PLIQ_DEFAULT_SCORE_COL], errors="coerce")
+    if "eDockQ1" in out.columns:
+        out["pliq_eDockQ1"] = pd.to_numeric(out["eDockQ1"], errors="coerce")
+
+    term_map = {
+        "pliq_term_fnat": "fnat",
+        "pliq_term_kernel_i": "kernel_i",
+        "pliq_term_kernel_l": "kernel_l",
+        "pliq_term_B6": "term_binana_six_micro_f1_default",
+        "pliq_term_H": "term_binana_hydrophobic_f1_default",
+        "pliq_term_B6xH": "fnat_binana_default",
+        "pliq_term_posebusters": "term_4",
+        "pliq_term_TM": "TMscore",
+    }
+    for dst, src in term_map.items():
+        if src in out.columns:
+            out[dst] = pd.to_numeric(out[src], errors="coerce")
+    return out
+
+
+PLIQ_SUMMARY_COLUMNS = [
+    "pliq",
+    "pliq_eDockQ1",
+    "eDockQ6_1",
+    "eDockQ6_2",
+    "eDockQ6_3",
+    "eDockQ6_4",
+    "pliq_term_fnat",
+    "pliq_term_kernel_i",
+    "pliq_term_kernel_l",
+    "pliq_term_B6",
+    "pliq_term_H",
+    "pliq_term_B6xH",
+    "pliq_term_posebusters",
+    "pliq_term_TM",
+]
 
 
 PLIQ_DOCKQ_CORE = ["eDockQ1"]
@@ -294,8 +341,11 @@ __all__ = [
     "BINANA_LEVELS",
     "BINANA_TYPES",
     "EDOCK_LEVEL_MAP",
+    "PLIQ_DEFAULT_SCORE_COL",
+    "PLIQ_SUMMARY_COLUMNS",
     "add_binana_prf_columns",
     "add_binana_six_pool_columns",
+    "add_pliq_summary_columns",
     "compute_all_metrics",
     "compute_edockq1",
     "pliq_dockq_columns",

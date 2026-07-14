@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """PL-Quality (PLIQ): end-to-end docking pose QA (e-DockQ, PoseBusters, TM-score, BINANA)."""
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 
 from pliq.e2e import run_pliq_from_pdbs
 from pliq.edockq.binana_recall import DEFAULT_BINANA_OBABEL_PH, DEFAULT_BINANA_STRIP_H

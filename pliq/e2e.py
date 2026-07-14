@@ -178,6 +178,7 @@ def run_pliq_from_pdbs(
     if run_posebusters:
         try:
             rec.update(_run_posebusters_row(ref_lig_pdb, dock_lig_pdb, dock_pro_pdb))
+            rec["run_posebusters_ok"] = True
         except Exception as e:
             rec["pb_error"] = str(e)[:500]
     else:
@@ -186,6 +187,7 @@ def run_pliq_from_pdbs(
     if run_tmscore:
         try:
             rec.update(_run_tmscore_row(ref_pro_pdb, dock_pro_pdb, edockq_root=edockq_root))
+            rec["run_tmscore_ok"] = bool(rec.get("tm_TMscore") not in (None, "", "nan"))
         except Exception as e:
             rec["tm_error"] = str(e)[:500]
             rec["tm_TMscore"] = ""
@@ -193,7 +195,19 @@ def run_pliq_from_pdbs(
         rec["tm_error"] = "disabled"
         rec["tm_TMscore"] = ""
 
+    rec["run_otmol_ok"] = (
+        rec.get("ligand_rmsd") is not None
+        and rec.get("otmol_map_pairs", 0) not in (None, "", -1, 0)
+        and str(rec.get("pliq_mapping_trusted", "")).lower() == "true"
+    )
+    rec["run_binana_ok"] = run_binana and not rec.get("binana_error")
+    if not run_posebusters:
+        rec["run_posebusters_ok"] = False
+    if not run_tmscore:
+        rec["run_tmscore_ok"] = False
+
     df = pd.DataFrame([rec])
+
     can_score = score_pliq
     if can_score:
         from pliq_edockq_scoring import PB_SOURCE
