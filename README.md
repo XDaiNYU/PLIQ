@@ -1,4 +1,4 @@
-# PL-Quality (PLIQ) v6
+# Protein-Ligand Interaction Quality (PLIQ) v6
 
 Python package for end-to-end docking pose QA: **e-DockQ** (ligand RMSD, interface RMSD, FNAT, **BINANA**), **PoseBusters**, **TM-score**, merged CSVs.
 
