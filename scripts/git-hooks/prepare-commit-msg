@@ -1,7 +1,0 @@
-#!/bin/bash
-# Remove automated co-author trailer lines from commit messages.
-# Install: cp scripts/git-hooks/prepare-commit-msg .git/hooks/prepare-commit-msg && chmod +x .git/hooks/prepare-commit-msg
-case "$(uname -s)" in
-  Darwin*) sed -i '' '/cursoragent@cursor\.com/d' "$1" ;;
-  *)       sed -i '/cursoragent@cursor\.com/d' "$1" ;;
-esac
