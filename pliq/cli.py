@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from pliq import __version__
-from pliq.pipeline import run_full_pipeline
+from pliq.edockq.binana_recall import resolve_binana_h_settings
 
 
 def _default_cases_file() -> Path:
@@ -64,19 +64,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument(
         "--binana-strip-h",
         action="store_true",
-        help="Scheme B: obabel -d strip H from ref+dock protein+ligand before BINANA. "
-        "Default: scheme A (as-is, keep dock H if present). No obabel -p in either mode.",
+        help="Explicit alias for default (obabel -d). Kept for SBATCH compatibility.",
+    )
+    p.add_argument(
+        "--binana-keep-h",
+        action="store_true",
+        help="Keep ref+dock as-is (no obabel -d/-p). Default: obabel -d unless --binana-obabel-ph.",
     )
     p.add_argument(
         "--binana-obabel-ph",
         type=float,
         default=None,
-        help="Optional Open Babel -p pH before BINANA (advanced; default: omit -p).",
+        help="Open Babel -p pH before BINANA (uses -p instead of default -d).",
     )
     p.add_argument(
         "--no-binana-obabel-h",
         action="store_true",
-        help="Alias for default (no Open Babel -p). Kept for backward compatibility.",
+        help="Alias for default (obabel -d, no -p). Kept for backward-compatible SBATCH.",
     )
 
     sub.add_parser(
@@ -139,6 +143,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not cases.is_file():
             print(f"Cases file not found: {cases}", file=sys.stderr)
             return 2
+        ob_ph, strip_h = resolve_binana_h_settings(
+            args.binana_obabel_ph,
+            force_no_obabel_ph=args.no_binana_obabel_h,
+            keep_h=args.binana_keep_h,
+        )
         run_full_pipeline(
             csv_file=cases,
             edockq_root=args.edockq_root,
@@ -150,8 +159,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             run_binana=not args.no_binana,
             interaction_criteria_xlsx=args.interaction_criteria_xlsx,
             binana_criteria_tier=args.binana_criteria_tier,
-            binana_obabel_ph=None if args.no_binana_obabel_h else args.binana_obabel_ph,
-            binana_strip_h=args.binana_strip_h,
+            binana_obabel_ph=ob_ph,
+            binana_strip_h=strip_h,
         )
         return 0
 

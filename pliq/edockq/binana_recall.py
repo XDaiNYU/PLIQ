@@ -45,10 +45,34 @@ RECEPTOR_SIGNATURE_MODES: List[Tuple[str, str]] = [
     (LM.RECEPTOR_SIG_RID_RES, "_rxres"),
 ]
 
-# BINANA input: no Open Babel -p by default (scheme A: keep dock H if present).
-# Optional obabel_ph adds polar H; binana_strip_h=True uses scheme B (obabel -d on all inputs).
+# BINANA input hydrogen prep (default: obabel -d strip all H on ref+dock protein+ligand).
+# Pass obabel_ph to use obabel -p at that pH instead (no -d). Use keep_h=True for as-is.
 DEFAULT_BINANA_OBABEL_PH = None
-DEFAULT_BINANA_STRIP_H = False
+DEFAULT_BINANA_STRIP_H = True
+
+
+def resolve_binana_h_settings(
+    obabel_ph: Optional[float] = None,
+    *,
+    force_no_obabel_ph: bool = False,
+    keep_h: bool = False,
+) -> Tuple[Optional[float], bool]:
+    """Return (obabel_ph, strip_h) for BINANA PDB preprocessing.
+
+    Default (no ``--binana-obabel-ph``): ``obabel -d`` on ref+dock protein+ligand.
+    When ``obabel_ph`` is set: use ``obabel -p`` at that pH and do not strip.
+    ``force_no_obabel_ph`` (--no-binana-obabel-h) keeps the default strip path.
+    ``keep_h`` (--binana-keep-h) skips both -d and -p (legacy as-is inputs).
+
+    All preprocessing writes copies under a temporary directory; source ref/dock PDB
+    paths on disk are never modified (PoseBusters / TM-score / OTMol still read originals).
+    """
+    ph = None if force_no_obabel_ph else obabel_ph
+    if ph is not None:
+        return ph, False
+    if keep_h:
+        return None, False
+    return None, True
 
 
 def _strip_hydrogens_obabel(in_pdb: str, out_pdb: str) -> None:
@@ -61,6 +85,80 @@ def _strip_hydrogens_obabel(in_pdb: str, out_pdb: str) -> None:
     )
 
 
+HeavyResidueAtomKey = Tuple[int, str, str]
+
+
+def _is_hydrogen_pdb_line(line: str) -> bool:
+    an = line[12:16].strip()
+    elem = line[76:78].strip() if len(line) > 77 else ""
+    if elem.upper() == "H":
+        return True
+    return bool(an) and an[0] == "H" and (len(an) == 1 or an[1].isdigit())
+
+
+def heavy_residue_atom_keys_from_pdb(pdb_path: str) -> set[HeavyResidueAtomKey]:
+    """Heavy-atom identity set ``(resseq, resname, atomname)`` from a PDB file."""
+    keys: set[HeavyResidueAtomKey] = set()
+    for line in Path(pdb_path).read_text().splitlines():
+        if not (line.startswith("ATOM") or line.startswith("HETATM")):
+            continue
+        if _is_hydrogen_pdb_line(line):
+            continue
+        resseq = int(line[22:26])
+        resname = line[17:20].strip()
+        atomname = line[12:16].strip()
+        keys.add((resseq, resname, atomname))
+    return keys
+
+
+def heavy_residue_atom_keys_from_pdbqt(
+    pdbqt_path: str,
+    binana_python: Path,
+) -> set[HeavyResidueAtomKey]:
+    """Heavy-atom ``(resseq, resname, atomname)`` set loaded from PDBQT via BINANA."""
+    binana_python = Path(binana_python).resolve()
+    old_path = sys.path[:]
+    sys.path.insert(0, str(binana_python))
+    try:
+        from binana._structure.mol import Mol
+
+        mol = Mol()
+        mol.load_pdb_file(str(pdbqt_path))
+    finally:
+        sys.path[:] = old_path
+
+    keys: set[HeavyResidueAtomKey] = set()
+    for atom in mol.all_atoms.values():
+        if str(atom.element or "").upper() == "H":
+            continue
+        resseq = int(atom.resid)
+        resname = str(atom.residue or "").strip()
+        atomname = str(atom.atom_name or "").strip()
+        keys.add((resseq, resname, atomname))
+    return keys
+
+
+def verify_pdbqt_preserves_residue_keys(
+    prep_pdb: str,
+    pdbqt_path: str,
+    binana_python: Path,
+    *,
+    label: str = "",
+) -> None:
+    """Raise ``ValueError`` if PDBQT conversion dropped or renamed heavy-atom residues."""
+    src = heavy_residue_atom_keys_from_pdb(prep_pdb)
+    qt = heavy_residue_atom_keys_from_pdbqt(pdbqt_path, binana_python)
+    if src == qt:
+        return
+    missing = sorted(src - qt)[:5]
+    extra = sorted(qt - src)[:5]
+    tag = f"{label}: " if label else ""
+    raise ValueError(
+        f"{tag}PDBQT residue keys mismatch (prep={len(src)} pdbqt={len(qt)}); "
+        f"missing_from_pdbqt={missing!r}; extra_in_pdbqt={extra!r}"
+    )
+
+
 def _prepare_pdb_for_binana(
     pdb_path: str,
     chain_id: str,
@@ -69,7 +167,11 @@ def _prepare_pdb_for_binana(
     *,
     strip_h: bool,
 ) -> str:
-    """Force chain ID; optionally strip all H with obabel -d before PDB→PDBQT."""
+    """Force chain ID; optionally strip all H with obabel -d before PDB→PDBQT.
+
+    Writes only to ``workdir`` (typically a ``TemporaryDirectory``); never modifies
+    ``pdb_path`` in place.
+    """
     chained = (
         H.write_forced_chain_pdb(pdb_path, chain_id, workdir / f"{basename}_chain.pdb")
         or pdb_path
@@ -82,6 +184,7 @@ def _prepare_pdb_for_binana(
 
 
 def _run_obabel(in_pdb: str, out_pdbqt: str, *, obabel_ph: Optional[float]) -> None:
+    """PDB→PDBQT; reads ``in_pdb`` only, writes ``out_pdbqt`` (never modifies source PDB)."""
     cmd = ["obabel", in_pdb, "-O", out_pdbqt]
     if obabel_ph is not None:
         cmd.extend(["-p", str(obabel_ph)])
@@ -116,6 +219,8 @@ def run_binana_collect(
         rec_qt = td_path / "receptor.pdbqt"
         _run_obabel(lig_src, str(lig_qt), obabel_ph=obabel_ph)
         _run_obabel(rec_src, str(rec_qt), obabel_ph=obabel_ph)
+        verify_pdbqt_preserves_residue_keys(lig_src, str(lig_qt), binana_python, label="ligand")
+        verify_pdbqt_preserves_residue_keys(rec_src, str(rec_qt), binana_python, label="receptor")
 
         old_path = sys.path[:]
         sys.path.insert(0, str(binana_python))
@@ -159,6 +264,7 @@ def load_binana_ligand_atom_table(
         lig_src = _prepare_pdb_for_binana(ligand_pdb, "B", td_path, "ligand", strip_h=strip_h)
         lig_qt = td_path / "ligand.pdbqt"
         _run_obabel(lig_src, str(lig_qt), obabel_ph=obabel_ph)
+        verify_pdbqt_preserves_residue_keys(lig_src, str(lig_qt), binana_python, label="ligand")
 
         old_path = sys.path[:]
         sys.path.insert(0, str(binana_python))
@@ -774,6 +880,17 @@ def compute_binana_recall_row(
             dock_to_ref=dock_to_ref,
             bci=otmol_BCI,
             bci_zero_ok=otmol_bci_zero_ok,
+            ref_binana_atoms=ref_binana_atoms or None,
+            dock_binana_atoms=dock_binana_atoms or None,
+            binana_to_rdkit_ref=binana_pdbindex_to_rdkit_ref or None,
+            binana_to_rdkit_dock=binana_pdbindex_to_rdkit or None,
+        )
+    )
+    out.update(
+        LM.pliq_binana_remap_csv_columns(
+            mol_ref,
+            mol_dock,
+            dock_to_ref,
             ref_binana_atoms=ref_binana_atoms or None,
             dock_binana_atoms=dock_binana_atoms or None,
             binana_to_rdkit_ref=binana_pdbindex_to_rdkit_ref or None,

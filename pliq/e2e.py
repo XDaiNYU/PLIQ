@@ -86,13 +86,19 @@ def _run_tmscore_row(
     *,
     edockq_root: Optional[Path] = None,
 ) -> dict:
-    from pliq.tmscore_run.runner import _compile_tmscore, _parse_tmscore_output, _run_tmscore
+    from pliq.tmscore_run.runner import (
+        _compile_tmscore,
+        _parse_tmscore_output,
+        _run_tmscore,
+        resolve_tmscore_protein_paths,
+    )
 
     root = resolve_edockq_root(edockq_root)
     tm_dir, tm_cpp, tm_exe, compile_tm = resolve_tmscore_paths(root)
     if compile_tm:
         _compile_tmscore(tm_dir, tm_cpp, tm_exe)
-    out = _run_tmscore(tm_exe, dock_pro_pdb, ref_pro_pdb)
+    ref_tm, pred_tm = resolve_tmscore_protein_paths(ref_pro_pdb, dock_pro_pdb)
+    out = _run_tmscore(tm_exe, pred_tm, ref_tm)
     parsed = _parse_tmscore_output(out)
     return {
         "Length1": parsed.get("Length1", ""),
@@ -136,10 +142,10 @@ def run_pliq_from_pdbs(
     Uses OTMol from https://github.com/weixiaoqimath/otmol (reflection always off),
     BINANA built-in default cutoffs, optional PoseBusters + TM-score.
 
-    BINANA hydrogen (no ``obabel -p``):
-    - ``binana_strip_h=False`` (default, scheme A): ref as-is (no crystal H), dock keeps
-      predictor protein/ligand H if present.
-    - ``binana_strip_h=True`` (scheme B): ``obabel -d`` strips H from ref+dock protein+ligand.
+    BINANA hydrogen (Open Babel before PDB→PDBQT):
+    - Default: ``obabel -d`` strips H from ref+dock protein+ligand.
+    - ``binana_obabel_ph=pH``: use ``obabel -p`` at that pH instead (no -d).
+    - ``binana_strip_h=False``: keep inputs as-is (legacy scheme A).
 
     Parameters
     ----------

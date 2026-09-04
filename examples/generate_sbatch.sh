@@ -36,7 +36,7 @@ cd "${HPC_WORK_DIR:-$SCRIPT_DIR}"
 
 HPC_ROOT="${HPC_ROOT:-/scratch/xd638/vast_xd638/2025_eDockQ/posebench_CASP15}"
 PLIQ_RUN_ROOT="${PLIQ_RUN_ROOT:-/scratch/xd638/vast_xd638/2025_eDockQ/Posebusters/pliq_ver5_refined}"
-LOCAL_POSEBENCH="${LOCAL_POSEBENCH:-/Users/xuhangdai/Desktop/Cursor_working_folder/eDockQ/posebench}"
+LOCAL_POSEBENCH="${LOCAL_POSEBENCH:-}"
 DATA_UPLOAD_DIR="${DATA_UPLOAD_DIR:-hpc_upload_pliq_casp15_20260608}"
 
 RUN_JOBS_CSV="${RUN_JOBS_CSV:-${HPC_ROOT}/${DATA_UPLOAD_DIR}/run_jobs.csv}"
@@ -51,7 +51,7 @@ if [[ ! -f "$RUN_JOBS_CSV" ]]; then
   alt="../${DATA_UPLOAD_DIR}/run_jobs.csv"
   if [[ -f "$alt" ]]; then
     RUN_JOBS_CSV="$(cd "$(dirname "$alt")" && pwd)/$(basename "$alt")"
-  elif [[ -f "${LOCAL_POSEBENCH}/${DATA_UPLOAD_DIR}/run_jobs.csv" ]]; then
+  elif [[ -n "${LOCAL_POSEBENCH}" && -f "${LOCAL_POSEBENCH}/${DATA_UPLOAD_DIR}/run_jobs.csv" ]]; then
     RUN_JOBS_CSV="${LOCAL_POSEBENCH}/${DATA_UPLOAD_DIR}/run_jobs.csv"
   else
     echo "Cannot find run_jobs.csv" >&2
@@ -235,7 +235,7 @@ print("=" * 70)
 bad = []
 for sb in Path(".").glob("tasks_*/*.SBATCH"):
     txt = sb.read_text(encoding="utf-8")
-    if "/Users/" in txt or "Desktop/Cursor" in txt:
+    if "/Users/" in txt:
         bad.append(str(sb))
 if bad:
     print("\nERROR: these SBATCH still contain local paths (re-run on HPC):", file=sys.stderr)

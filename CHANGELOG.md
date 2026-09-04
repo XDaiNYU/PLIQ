@@ -4,6 +4,19 @@ All notable changes to **PLIQ** are documented here.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.3] — 2026-09-04
+
+### Added
+
+- BINANA hydrogen resolution helpers and additional regression tests (strip-H, no in-place PDB edits, CSV remap).
+- `scripts/score_collect_csvs.py` for batch scoring collected result CSVs.
+
+### Changed
+
+- Improved OTMol ligand mapping presets and BINANA recall pipeline.
+- TM-score runner accepts full-protein structures when configured.
+- HPC SBATCH generator no longer embeds local machine paths by default.
+
 ## [0.6.2] — 2026-06-23
 
 ### Added

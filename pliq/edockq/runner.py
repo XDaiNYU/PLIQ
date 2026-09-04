@@ -46,11 +46,11 @@ def run_edockq(
     legacy ``medium1`` = ``medium``) and passed into
     ``get_all_interactions`` without editing vendored BINANA scripts.
 
-    BINANA hydrogen handling (no ``obabel -p`` by default):
-    - ``binana_strip_h=False`` (scheme A): ref/dock PDBs as-is; dock keeps predictor H if present.
-    - ``binana_strip_h=True`` (scheme B): ``obabel -d`` on ref+dock protein+ligand before BINANA.
-
-    ``binana_obabel_ph``: optional Open Babel ``-p`` pH (usually leave ``None``).
+    BINANA hydrogen (Open Babel before PDB→PDBQT):
+    - Default: ``obabel -d`` strips H from ref+dock protein+ligand.
+    - ``binana_obabel_ph=pH``: use ``obabel -p`` at that pH instead (no -d).
+    - ``binana_strip_h=False`` with ``binana_obabel_ph=None``: legacy as-is only if caller
+      passes ``strip_h=False`` explicitly; library default is strip.
 
     n_cases: 0 = all rows; else take first n_cases.
     """

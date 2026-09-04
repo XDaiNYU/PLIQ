@@ -31,6 +31,22 @@ def _run_tmscore(tm_exe, pred_pdb, ref_pdb, timeout=60):
     return result.stdout + result.stderr
 
 
+def resolve_tmscore_protein_paths(ref_pro_pdb, pred_pro_pdb):
+    """Prefer *_full.pdb (ver5-style whole protein) when present; else trimmed interface files."""
+    ref_pro_pdb = Path(ref_pro_pdb)
+    pred_pro_pdb = Path(pred_pro_pdb)
+    ref_full = ref_pro_pdb.with_name(
+        ref_pro_pdb.name.replace("_protein_renum.pdb", "_protein_renum_full.pdb")
+    )
+    pred_full = pred_pro_pdb.with_name(
+        pred_pro_pdb.name.replace("_aligned_protein.pdb", "_aligned_protein_full.pdb")
+    )
+    return (
+        ref_full if ref_full.is_file() else ref_pro_pdb,
+        pred_full if pred_full.is_file() else pred_pro_pdb,
+    )
+
+
 def _parse_tmscore_output(out):
     """Parse TMscore stdout for Length1, Length2, CommonRes, RMSD, TM-score, MaxSub, GDT-TS, GDT-HA."""
     data = {}
@@ -95,9 +111,15 @@ def run_tmscore(
     rows = []
     for _, row in tqdm(df1.iterrows(), total=len(df1), desc="TM-score"):
         case_name = row["pdb_id"]
-        ref_prot = path_ref_pro / case_name / f"{case_name}_protein_renum.pdb"
+        ref_prot, _ = resolve_tmscore_protein_paths(
+            path_ref_pro / case_name / f"{case_name}_protein_renum.pdb",
+            path_docked / f"posebusters_{case_name}" / f"posebusters_{case_name}_model_0_aligned_protein.pdb",
+        )
         for mid in range(n_models):
-            pred_prot = path_docked / f"posebusters_{case_name}" / f"posebusters_{case_name}_model_{mid}_aligned_protein.pdb"
+            _, pred_prot = resolve_tmscore_protein_paths(
+                path_ref_pro / case_name / f"{case_name}_protein_renum.pdb",
+                path_docked / f"posebusters_{case_name}" / f"posebusters_{case_name}_model_{mid}_aligned_protein.pdb",
+            )
             Length1 = Length2 = CommonRes = RMSD_common = TMscore = MaxSub = GDT_TS = GDT_HA = ""
             error = ""
             if not pred_prot.exists():

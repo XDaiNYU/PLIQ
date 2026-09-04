@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Union
 from . import binana_recall as BR
 from . import helpers as H
 from . import ligand_mapping as LM
-from .binana_recall import DEFAULT_BINANA_OBABEL_PH, DEFAULT_BINANA_STRIP_H
+from .binana_recall import DEFAULT_BINANA_OBABEL_PH, DEFAULT_BINANA_STRIP_H, resolve_binana_h_settings
 from .otmol_runtime import ensure_local_otmol_on_path
 
 ensure_local_otmol_on_path()
@@ -53,9 +53,10 @@ def evaluate_pose_from_pdbs(
 
     Ligand mapping uses OTMol only; reflection is always disabled in alignment presets.
 
-    BINANA hydrogen: ``binana_strip_h=False`` (scheme A, default) keeps dock H if present;
-    ``binana_strip_h=True`` (scheme B) strips all H from ref+dock protein+ligand via ``obabel -d``.
-    Neither mode uses ``obabel -p``.
+    BINANA hydrogen (Open Babel before PDB→PDBQT):
+    - Default: ``obabel -d`` strips H from ref+dock protein+ligand.
+    - ``binana_obabel_ph=pH``: use ``obabel -p`` at that pH instead (no -d).
+    - ``binana_strip_h=False`` with ``binana_obabel_ph=None``: keep inputs as-is (legacy).
     """
     ref_lig_pdb = Path(ref_lig_pdb).resolve()
     ref_pro_pdb = Path(ref_pro_pdb).resolve()

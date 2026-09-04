@@ -276,18 +276,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument(
         "--binana-strip-h",
         action="store_true",
-        help="Scheme B: obabel -d strip H from ref+dock protein+ligand. Default: scheme A (as-is).",
+        help="Explicit alias for default (obabel -d strip H). Kept for SBATCH compatibility.",
+    )
+    ap.add_argument(
+        "--binana-keep-h",
+        action="store_true",
+        help="Keep ref+dock as-is (no obabel -d/-p). Default: obabel -d unless --binana-obabel-ph set.",
     )
     ap.add_argument(
         "--binana-obabel-ph",
         type=float,
         default=None,
-        help="Optional Open Babel -p pH before BINANA. Default: omit -p.",
+        help="Open Babel -p pH before BINANA (uses -p instead of default -d).",
     )
     ap.add_argument(
         "--no-binana-obabel-h",
         action="store_true",
-        help="Alias for default (no Open Babel -p).",
+        help="Alias for default (obabel -d, no -p). Kept for backward-compatible SBATCH.",
     )
     args = ap.parse_args(argv)
 
@@ -330,8 +335,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             binana_gkwargs = load_binana_get_all_interaction_kwargs_from_path(
                 crit, tier=args.binana_criteria_tier
             )
-    binana_obabel_ph = None if args.no_binana_obabel_h else args.binana_obabel_ph
-    binana_strip_h = args.binana_strip_h
+    binana_obabel_ph, binana_strip_h = BR.resolve_binana_h_settings(
+        args.binana_obabel_ph,
+        force_no_obabel_ph=args.no_binana_obabel_h,
+        keep_h=args.binana_keep_h,
+    )
     args.per_model_dir.mkdir(parents=True, exist_ok=True)
     args.saved_csv.parent.mkdir(parents=True, exist_ok=True)
 
@@ -484,6 +492,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                         bci_zero_ok=otmol_bci_zero_ok,
                     )
                 )
+                if mol1 and mol2 and dock_to_ref:
+                    rec.update(
+                        LM.pliq_binana_remap_csv_columns(mol1, mol2, dock_to_ref)
+                    )
 
                 # ----- STEP 4e: BINANA -----
                 rec["binana_error"] = ""
@@ -537,8 +549,12 @@ def main(argv: Optional[List[str]] = None) -> int:
 
                 # ----- STEP 4g: TM-score -----
                 if not args.no_tmscore:
-                    ref_prot = path_ref_pro / case_name / f"{case_name}_protein_renum.pdb"
-                    pred_prot = path_docked / f"posebusters_{case_name}" / f"posebusters_{case_name}_model_{af_model_id}_aligned_protein.pdb"
+                    from pliq.tmscore_run.runner import resolve_tmscore_protein_paths
+
+                    ref_prot, pred_prot = resolve_tmscore_protein_paths(
+                        path_ref_pro / case_name / f"{case_name}_protein_renum.pdb",
+                        path_docked / f"posebusters_{case_name}" / f"posebusters_{case_name}_model_{af_model_id}_aligned_protein.pdb",
+                    )
                     rec.update(run_tmscore_one(tm_exe, ref_prot, pred_prot))
 
                 results.append(rec)

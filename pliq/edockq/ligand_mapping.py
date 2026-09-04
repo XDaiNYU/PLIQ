@@ -644,6 +644,301 @@ def format_ligand_dock_to_ref_pairs(dock_to_ref: Dict[int, int]) -> str:
     return ";".join(f"{dj}:{rj}" for dj, rj in sorted(dock_to_ref.items()))
 
 
+PLIQ_BINANA_REMAP_SCHEMA = "1"
+
+PLIQ_BINANA_REMAP_CSV_COLUMNS: Tuple[str, ...] = (
+    "pliq_binana_remap_schema",
+    "ligand_dock_to_ref_pairs",
+    "ligand_dock_to_ref_map",
+    "binana_pdbindex_to_rdkit_ref_pairs",
+    "binana_pdbindex_to_rdkit_dock_pairs",
+    "binana_pdbindex_to_rdkit_ref_map",
+    "binana_pdbindex_to_rdkit_dock_map",
+)
+
+
+def parse_index_pair_string(pairs: str) -> Dict[int, int]:
+    """Parse ``left:right;left:right`` index maps from CSV (empty -> {})."""
+    out: Dict[int, int] = {}
+    text = (pairs or "").strip()
+    if not text:
+        return out
+    for chunk in text.split(";"):
+        chunk = chunk.strip()
+        if not chunk or ":" not in chunk:
+            continue
+        left, right = chunk.split(":", 1)
+        try:
+            out[int(left.strip())] = int(right.strip())
+        except ValueError:
+            continue
+    return out
+
+
+def binana_pdbindex_to_rdkit_map_records(
+    binana_atoms: Optional[Dict[int, Dict[str, Any]]],
+    mol: Optional[Chem.Mol],
+    pdb_to_rdkit: Optional[Dict[int, int]],
+) -> List[Dict[str, Any]]:
+    """Records for CSV: BINANA PDB serial -> RDKit idx (+ labels for offline QA)."""
+    if not binana_atoms or not pdb_to_rdkit:
+        return []
+    records: List[Dict[str, Any]] = []
+    for pdb_idx in sorted(pdb_to_rdkit):
+        meta = binana_atoms.get(pdb_idx) or {}
+        rj = pdb_to_rdkit[pdb_idx]
+        rec: Dict[str, Any] = {
+            "binana_pdb_index": int(pdb_idx),
+            "rdkit_idx": int(rj),
+            "element": str(meta.get("element") or "").upper(),
+            "chain": str(meta.get("chain") or "").strip(),
+            "resID": meta.get("resID"),
+            "resName": str(meta.get("resName") or "").strip(),
+            "atomName": str(meta.get("atomName") or "").strip(),
+        }
+        if mol is not None and 0 <= rj < mol.GetNumAtoms():
+            ch, rid, rnm, anm = rdkit_pdb_tuple(mol.GetAtomWithIdx(rj))
+            rec["rdkit_chain"] = ch
+            rec["rdkit_resID"] = rid
+            rec["rdkit_resName"] = rnm
+            rec["rdkit_atomName"] = anm
+            rec["rdkit_atomic_num"] = int(mol.GetAtomWithIdx(rj).GetAtomicNum())
+        records.append(rec)
+    return records
+
+
+def format_binana_pdbindex_to_rdkit_map_json(
+    binana_atoms: Optional[Dict[int, Dict[str, Any]]],
+    mol: Optional[Chem.Mol],
+    pdb_to_rdkit: Optional[Dict[int, int]],
+) -> str:
+    return json.dumps(
+        binana_pdbindex_to_rdkit_map_records(binana_atoms, mol, pdb_to_rdkit),
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+
+
+def format_binana_pdbindex_to_rdkit_pairs(pdb_to_rdkit: Optional[Dict[int, int]]) -> str:
+    if not pdb_to_rdkit:
+        return ""
+    return ";".join(f"{p}:{j}" for p, j in sorted(pdb_to_rdkit.items()))
+
+
+def empty_pliq_binana_remap_csv_columns() -> Dict[str, str]:
+    return {
+        "pliq_binana_remap_schema": PLIQ_BINANA_REMAP_SCHEMA,
+        "ligand_dock_to_ref_pairs": "",
+        "ligand_dock_to_ref_map": "[]",
+        "binana_pdbindex_to_rdkit_ref_pairs": "",
+        "binana_pdbindex_to_rdkit_dock_pairs": "",
+        "binana_pdbindex_to_rdkit_ref_map": "[]",
+        "binana_pdbindex_to_rdkit_dock_map": "[]",
+    }
+
+
+def pliq_binana_remap_csv_columns(
+    mol_ref: Optional[Chem.Mol],
+    mol_dock: Optional[Chem.Mol],
+    dock_to_ref: Optional[Dict[int, int]],
+    *,
+    ref_binana_atoms: Optional[Dict[int, Dict[str, Any]]] = None,
+    dock_binana_atoms: Optional[Dict[int, Dict[str, Any]]] = None,
+    binana_to_rdkit_ref: Optional[Dict[int, int]] = None,
+    binana_to_rdkit_dock: Optional[Dict[int, int]] = None,
+) -> Dict[str, str]:
+    """
+    Flat CSV fields to rebuild PLIQ BINANA ligand remapping offline from one row.
+
+    Chain for dock-side ligand atoms in raw BINANA JSON:
+      ``binana_pdb_index`` -> (``binana_pdbindex_to_rdkit_dock``) -> dock RDKit idx
+      -> (``ligand_dock_to_ref_pairs``) -> ref RDKit idx.
+    Ref-side ligand atoms:
+      ``binana_pdb_index`` -> (``binana_pdbindex_to_rdkit_ref``) -> ref RDKit idx.
+    """
+    out = empty_pliq_binana_remap_csv_columns()
+    d2r = dict(dock_to_ref or {})
+    if mol_ref is not None and mol_dock is not None and d2r:
+        out["ligand_dock_to_ref_pairs"] = format_ligand_dock_to_ref_pairs(d2r)
+        out["ligand_dock_to_ref_map"] = format_ligand_dock_to_ref_map_json(
+            mol_ref, mol_dock, d2r
+        )
+    b_ref = dict(binana_to_rdkit_ref or {})
+    b_dock = dict(binana_to_rdkit_dock or {})
+    if b_ref:
+        out["binana_pdbindex_to_rdkit_ref_pairs"] = format_binana_pdbindex_to_rdkit_pairs(b_ref)
+        out["binana_pdbindex_to_rdkit_ref_map"] = format_binana_pdbindex_to_rdkit_map_json(
+            ref_binana_atoms, mol_ref, b_ref
+        )
+    if b_dock:
+        out["binana_pdbindex_to_rdkit_dock_pairs"] = format_binana_pdbindex_to_rdkit_pairs(b_dock)
+        out["binana_pdbindex_to_rdkit_dock_map"] = format_binana_pdbindex_to_rdkit_map_json(
+            dock_binana_atoms, mol_dock, b_dock
+        )
+    return out
+
+
+def parse_pliq_binana_remap_from_csv_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Load remap tables from a PLIQ stepwise CSV row (dict-like)."""
+    return {
+        "schema": str(row.get("pliq_binana_remap_schema") or ""),
+        "dock_to_ref": parse_index_pair_string(str(row.get("ligand_dock_to_ref_pairs") or "")),
+        "dock_to_ref_records": json.loads(str(row.get("ligand_dock_to_ref_map") or "[]") or "[]"),
+        "binana_to_rdkit_ref": parse_index_pair_string(
+            str(row.get("binana_pdbindex_to_rdkit_ref_pairs") or "")
+        ),
+        "binana_to_rdkit_dock": parse_index_pair_string(
+            str(row.get("binana_pdbindex_to_rdkit_dock_pairs") or "")
+        ),
+        "binana_to_rdkit_ref_records": json.loads(
+            str(row.get("binana_pdbindex_to_rdkit_ref_map") or "[]") or "[]"
+        ),
+        "binana_to_rdkit_dock_records": json.loads(
+            str(row.get("binana_pdbindex_to_rdkit_dock_map") or "[]") or "[]"
+        ),
+    }
+
+
+def binana_ligand_atomindex_to_ref_rdkit_idx(
+    binana_pdb_index: int,
+    *,
+    side: str,
+    binana_to_rdkit_ref: Dict[int, int],
+    binana_to_rdkit_dock: Dict[int, int],
+    dock_to_ref: Dict[int, int],
+) -> Optional[int]:
+    """
+    Map one BINANA ligand ``atomIndex`` (PDB serial) to reference-ligand RDKit idx.
+
+    ``side`` is ``"ref"`` or ``"dock"`` (same convention as BINANA recall).
+    """
+    side = str(side).strip().lower()
+    if side == "ref":
+        return binana_to_rdkit_ref.get(int(binana_pdb_index))
+    if side == "dock":
+        dj = binana_to_rdkit_dock.get(int(binana_pdb_index))
+        if dj is None:
+            return None
+        return dock_to_ref.get(int(dj))
+    raise ValueError(f"side must be 'ref' or 'dock', got {side!r}")
+
+
+def remap_binana_ligand_atom_indices_from_csv_row(
+    ligand_atoms: List[Dict[str, Any]],
+    *,
+    side: str,
+    row: Dict[str, Any],
+) -> List[int]:
+    """Return sorted unique ref-RDKit indices for ligand atoms in one BINANA interaction."""
+    maps = parse_pliq_binana_remap_from_csv_row(row)
+    idxs: List[int] = []
+    for ba in ligand_atoms or []:
+        if not isinstance(ba, dict):
+            continue
+        pdb_idx = _safe_pdb_index(ba.get("atomIndex"))
+        if pdb_idx is None:
+            continue
+        if _is_hydrogen_binana_atom(ba):
+            continue
+        rj = binana_ligand_atomindex_to_ref_rdkit_idx(
+            pdb_idx,
+            side=side,
+            binana_to_rdkit_ref=maps["binana_to_rdkit_ref"],
+            binana_to_rdkit_dock=maps["binana_to_rdkit_dock"],
+            dock_to_ref=maps["dock_to_ref"],
+        )
+        if rj is not None:
+            idxs.append(int(rj))
+    return sorted(set(idxs))
+
+
+def rebuild_interaction_signature_from_csv_row(
+    interaction: Dict[str, Any],
+    *,
+    side: str,
+    row: Dict[str, Any],
+    receptor_mode: str = RECEPTOR_SIG_RID_ATOM,
+) -> str:
+    """Rebuild PLIQ BINANA signature from CSV remap columns + raw interaction JSON."""
+    lig = interaction.get("ligandAtoms") or []
+    rec = interaction.get("receptorAtoms") or []
+    lig_part = "|".join(
+        str(i) for i in remap_binana_ligand_atom_indices_from_csv_row(lig, side=side, row=row)
+    )
+    rec_part = receptor_signature_part(rec, receptor_mode)
+    return f"L[{lig_part}]R[{rec_part}]"
+
+
+def validate_offline_binana_remap_from_csv_row(
+    row: Dict[str, Any],
+    *,
+    receptor_mode: str = RECEPTOR_SIG_RID_ATOM,
+    interaction_keys: Optional[List[Tuple[str, str]]] = None,
+) -> None:
+    """
+    Raise ``ValueError`` if ``*_ref_raw`` / ``*_dock_raw`` signatures rebuilt from CSV remap
+    columns disagree with stored signatures.
+
+    When ``*_tp_details*`` / ``*_fn_details*`` / ``*_fp_details*`` are present, also checks
+    those nested instance records (``ref`` / ``dock`` sub-objects from classify step).
+    """
+    keys = interaction_keys or []
+    if not keys:
+        from . import binana_recall as _br  # local import avoids cycle at module load
+
+        keys = _br.BINANA_INTERACTION_KEYS
+    suffix = ""
+    if receptor_mode == RECEPTOR_SIG_RID_ATOM_IDX:
+        suffix = "_rxidx"
+    elif receptor_mode == RECEPTOR_SIG_RID_ATOM:
+        suffix = "_rxatm"
+    elif receptor_mode == RECEPTOR_SIG_RID_RES:
+        suffix = "_rxres"
+
+    def _check_instance(
+        inst: Dict[str, Any],
+        *,
+        side: str,
+        col: str,
+        stored_sig: str,
+    ) -> None:
+        rebuilt = rebuild_interaction_signature_from_csv_row(
+            {
+                "ligandAtoms": inst.get("ligand_atoms_structure")
+                or inst.get("ligandAtoms")
+                or [],
+                "receptorAtoms": inst.get("receptor_atoms")
+                or inst.get("receptorAtoms")
+                or [],
+            },
+            side=side,
+            row=row,
+            receptor_mode=receptor_mode,
+        )
+        if rebuilt != stored_sig:
+            raise ValueError(
+                f"{col}: signature mismatch side={side} stored={stored_sig!r} rebuilt={rebuilt!r}"
+            )
+
+    for _, short in keys:
+        for bucket in ("tp", "fn", "fp"):
+            col = f"binana_{short}_{bucket}_details{suffix}"
+            raw = row.get(col)
+            if not raw or raw == "[]":
+                continue
+            for item in json.loads(str(raw)):
+                sig = str(item.get("signature") or "")
+                if bucket == "tp":
+                    if "ref" in item:
+                        _check_instance(item["ref"], side="ref", col=col, stored_sig=sig)
+                    if "dock" in item:
+                        _check_instance(item["dock"], side="dock", col=col, stored_sig=sig)
+                elif bucket == "fn" and "ref" in item:
+                    _check_instance(item["ref"], side="ref", col=col, stored_sig=sig)
+                elif bucket == "fp" and "dock" in item:
+                    _check_instance(item["dock"], side="dock", col=col, stored_sig=sig)
+
+
 def validate_rdkit_mol_for_otmol(mol: Optional[Chem.Mol], *, name: str) -> None:
     """Raise ValueError if an RDKit Mol is unusable for OTMol alignment."""
     if mol is None:

@@ -51,6 +51,12 @@ def _binana_row(paths, *, strip_h: bool):
 
 @pytest.mark.skipif(not (LOCAL / "7ZU2_DHT").is_dir(), reason="7ZU2_DHT test structures missing")
 def test_binana_h_mode_defaults(zu2_paths):
+    row = _binana_row(zu2_paths, strip_h=True)
+    assert row["binana_h_mode"] == "strip_all"
+
+
+@pytest.mark.skipif(not (LOCAL / "7ZU2_DHT").is_dir(), reason="7ZU2_DHT test structures missing")
+def test_binana_keep_h_mode(zu2_paths):
     row = _binana_row(zu2_paths, strip_h=False)
     assert row["binana_h_mode"] == "as_is"
 
