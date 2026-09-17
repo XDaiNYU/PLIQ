@@ -45,7 +45,7 @@ df = run_pliq_from_pdbs(
     pdb_id="7ZU2_DHT",
     af_model_id=15,
 )
-print(df[["pliq", "eDockQ6_1", "run_otmol_ok", "run_binana_ok"]].iloc[0])
+print(df[["pliq", "run_otmol_ok", "run_binana_ok"]].iloc[0])
 ```
 
 `run_pliq_from_pdbs` returns a **one-row `pandas.DataFrame`** and writes the same row to CSV.
@@ -63,9 +63,6 @@ print(df[["pliq", "eDockQ6_1", "run_otmol_ok", "run_binana_ok"]].iloc[0])
 | `fnat_all` | 0.935 |
 | `tm_TMscore` | 0.992 |
 | **`pliq`** | **0.928** |
-| `pliq_eDockQ1` | 0.974 |
-| `eDockQ6_1` | 0.928 (= `pliq`) |
-| `eDockQ6_4` | 0.947 |
 
 ## Column guide (`pliq_result_summary.csv`)
 
@@ -73,7 +70,7 @@ print(df[["pliq", "eDockQ6_1", "run_otmol_ok", "run_binana_ok"]].iloc[0])
 
 | Column | Module | Meaning |
 |--------|--------|---------|
-| `run_otmol_ok` | OTMol | Ligand mapping + e-DockQ geometry succeeded |
+| `run_otmol_ok` | OTMol | Ligand mapping + geometry succeeded |
 | `run_binana_ok` | BINANA | Interaction recall ran (`binana_error` empty) |
 | `run_posebusters_ok` | PoseBusters | Redock checks succeeded |
 | `run_tmscore_ok` | TM-score | Protein TM-score computed |
@@ -97,14 +94,9 @@ print(df[["pliq", "eDockQ6_1", "run_otmol_ok", "run_binana_ok"]].iloc[0])
 
 | Column | Meaning |
 |--------|---------|
-| **`pliq`** | **Default headline score (= `eDockQ6_1`)** |
-| `pliq_eDockQ1` | Simpler score without BINANA/PB/TM (= `eDockQ1`) |
-| `eDockQ6_1` | Composite at BINANA level default (chain+resID+resName+atomName) |
-| `eDockQ6_2` | BINANA level `rxatm` |
-| `eDockQ6_3` | BINANA level `rxidx` |
-| `eDockQ6_4` | BINANA level `rxres` (residue-only) |
+| **`pliq`** | **Default headline score** |
 
-### PLIQ term decomposition (for `pliq` = `eDockQ6_1`)
+### PLIQ term decomposition
 
 ```
 pliq = pliq_term_posebusters × (pliq_term_B6xH + pliq_term_kernel_i + pliq_term_kernel_l) / 3 × pliq_term_TM

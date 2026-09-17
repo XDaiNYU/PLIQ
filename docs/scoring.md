@@ -1,6 +1,6 @@
 # Scoring overview
 
-PLIQ ver5 (refined) produces **eDockQ1** and **eDockQ6_1 .. eDockQ6_4** from a
+PLIQ produces a headline **`pliq`** score (plus `pliq_term_*` columns) from a
 single raw-metrics table.
 
 ## Pipeline
@@ -8,38 +8,32 @@ single raw-metrics table.
 ```text
 Structures  →  run-all / stepwise runner  →  raw CSV
                                               ↓
-                              pliq_edockq_scoring.score_edockq_stepwise()
+                                    PLIQ scoring
                                               ↓
-                                    eDockQ1, eDockQ6_1..4
+                                    pliq, pliq_term_*
 ```
 
-## eDockQ1
+For a single pose, `run_pliq_from_pdbs()` already writes the scored columns.
+
+## PLIQ score
 
 ```text
-eDockQ1 = (fnat_BBSC + k_i + k_l) / 3
+pliq = term_4 × (B6×H + k_i + k_l) / 3 × TM
 ```
 
-| Term | Meaning |
-|------|---------|
-| `fnat_BBSC` | Fraction native contacts (backbone + sidechain F1) |
-| `k_i` | Interface RMSD kernel, `1/(1+(iRMSD/1.5)²)` |
-| `k_l` | Ligand RMSD kernel, `1/(1+(ligRMSD/8.5)²)` |
+| Term | Column | Meaning |
+|------|--------|---------|
+| `fnat_BBSC` | `pliq_term_fnat` | Fraction native contacts (backbone + sidechain F1) |
+| `k_i` | `pliq_term_kernel_i` | Interface RMSD kernel, `1/(1+(iRMSD/1.5)²)` |
+| `k_l` | `pliq_term_kernel_l` | Ligand RMSD kernel, `1/(1+(ligRMSD/8.5)²)` |
+| `B6` | `pliq_term_B6` | Micro-pooled F1 over six BINANA types (hbond, salt, pipi, tstack, cationpi, halogen) |
+| `H` | `pliq_term_H` | Hydrophobic interaction F1 |
+| `B6×H` | `pliq_term_B6xH` | `pliq_term_B6 × pliq_term_H` |
+| `term_4` | `pliq_term_posebusters` | `(PoseBusters 8-check pass fraction)²` |
+| `TM` | `pliq_term_TM` | Protein TM-score (ref vs dock) |
 
-## eDockQ6_k (k = 1..4)
-
-```text
-eDockQ6_k = term_4 × (B6×H + k_i + k_l)/3 × TM
-```
-
-| Term | Meaning |
-|------|---------|
-| `term_4` | PoseBusters-style validity gate |
-| `B6` | Micro-pooled F1 over six BINANA types (hbond, salt, pipi, tstack, cationpi, halogen) |
-| `H` | Hydrophobic interaction F1 |
-| `TM` | Protein TM-score (ref vs dock) |
-
-The four **k** levels differ only in **BINANA receptor granularity**
-(atom / residue / index / rxatm modes).
+BINANA receptor granularity for the default `pliq` score is
+chain + resID + resName + atomName.
 
 ## Ligand mapping (OTMol)
 
@@ -53,6 +47,6 @@ aligned to common numbering.
 
 ## Further reading
 
-- [Full English report](../reports/pliq_ver5_report_en.md)
-- [Full Chinese report](../reports/pliq_ver5_report_zh.md)
+- [Tutorial notebook](PLIQ_tutorial.ipynb)
+- [Worked example](../examples/7ZU2_DHT_model15/README.md)
 - `scripts/run_one_case_terms.py` — print all terms for one case/model

@@ -31,7 +31,7 @@ python examples/run_pliq_stepwise_hpc.py \
   --path-ref-lig /path/references \
   --path-ref-pro /path/references \
   --path-docked /path/docked \
-  --saved-csv e-DockQ_stepwise_001.csv \
+  --saved-csv pliq_stepwise_001.csv \
   --per-model-dir per_model_001 \
   --n-models 20 \
   --binana-obabel-ph 7.4
@@ -50,44 +50,36 @@ In `examples/`:
 
 | File | Purpose |
 |------|---------|
-| `task_e_DockQ_ver5_template.SBATCH` | Job template — edit account, singularity, conda env |
+| SBATCH job template | Edit account, singularity, conda env |
 | `generate_sbatch.sh` | Slice `run_jobs.csv` into per-chunk SBATCH + `submit_all.sh` |
 
 On HPC:
 
 ```bash
-export PLIQ_RUN_ROOT=/path/to/pliq_ver5_refined   # this repo after pip install .
+export PLIQ_RUN_ROOT=/path/to/PLIQ   # this repo after pip install .
 ./generate_sbatch.sh
 bash submit_all.sh
 ```
 
 ## Score the raw CSV
 
-The stepwise runner writes **raw metrics**. Convert to eDockQ scores:
-
-```bash
-python -c "
-import pandas as pd
-import pliq_edockq_scoring as S
-df = pd.read_csv('e-DockQ_stepwise_001.csv')
-S.score_edockq_stepwise(df).to_csv('e-DockQ_scored_001.csv', index=False)
-"
-```
+The stepwise runner writes **raw metrics**. Add `pliq` / `pliq_term_*` afterwards
+(see [scoring.md](scoring.md)).
 
 ## TM-score
 
-Leave TM-score **enabled** (default) for eDockQ6_1..4:
+Leave TM-score **enabled** (default) so `pliq` is defined:
 
 ```text
-eDockQ6_k = term_4 × (B6×H + k_i + k_l)/3 × TM
+pliq = term_4 × (B6×H + k_i + k_l)/3 × TM
 ```
 
-Use `--no-tmscore` only if the binary cannot be built; eDockQ6 columns will be NaN.
+Use `--no-tmscore` only if the binary cannot be built; the `pliq` column will be NaN.
 
 ## Outputs
 
 Per job:
 
-- `e-DockQ_stepwise_*.csv` — merged raw metrics
+- `pliq_stepwise_*.csv` — merged raw metrics
 - `per_model_*/*.csv` — one row per model
 - Failures are recorded in-row (`*_error` columns) and printed at end

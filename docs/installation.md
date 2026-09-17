@@ -5,7 +5,7 @@
 - Python **≥ 3.8**
 - C++ compiler (optional but recommended): builds TM-score from bundled source
 - **Open Babel** (`obabel`) on `PATH` for BINANA and PoseBusters MOL2 paths
-- **OTMol** (`import otmol`) for ligand alignment — required for e-DockQ metrics
+- **OTMol** (`import otmol`) for ligand alignment — required for ligand RMSD, FNAT, and BINANA mapping
 
 ## Install from source
 
@@ -42,7 +42,7 @@ PLIQ does **not** ship a pre-built TM-score executable.
 Resolution order:
 
 1. `PLIQ_TM_EXE` environment variable
-2. `$PLIQ_EDOCKQ_ROOT/TMscore`
+2. `TMscore` executable in the data-root folder
 3. Compile bundled `pliq/_vendor/tmscore/TMscore.cpp` into the user cache
 
 Pre-build manually:
@@ -62,7 +62,7 @@ Override cache root: `PLIQ_CACHE`.
 
 | Variable | Purpose |
 |----------|---------|
-| `PLIQ_EDOCKQ_ROOT` | Root containing `data_posebusters/` (batch `run-all`) |
+| Data root | Folder containing `data_posebusters/` (batch `run-all`; `pliq info` prints the resolved path) |
 | `PLIQ_TM_EXE` | Path to TM-score binary |
 | `PLIQ_CACHE` | Override cache directory |
 

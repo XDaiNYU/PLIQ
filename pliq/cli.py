@@ -148,6 +148,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             force_no_obabel_ph=args.no_binana_obabel_h,
             keep_h=args.binana_keep_h,
         )
+        from pliq.pipeline import run_full_pipeline
+
         run_full_pipeline(
             csv_file=cases,
             edockq_root=args.edockq_root,
